@@ -2,13 +2,41 @@
  * Modern Grid Table - Professional Data Grid Component
  */
 
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+/** Cell values go into innerHTML, so escape them to prevent HTML/script injection. */
+export function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
+}
+
+/**
+ * Comparator for a column: numeric when both values look numeric
+ * (e.g. "$1,200", "42"), otherwise a locale-aware string compare.
+ */
+export function compareValues(field, direction = 'asc') {
+  const sign = direction === 'asc' ? 1 : -1;
+  const toNumber = value => {
+    const cleaned = String(value).replace(/[$,\s]/g, '');
+    return cleaned !== '' && !isNaN(cleaned) ? Number(cleaned) : NaN;
+  };
+  return (a, b) => {
+    const aVal = a[field] ?? '';
+    const bVal = b[field] ?? '';
+    const aNum = toNumber(aVal);
+    const bNum = toNumber(bVal);
+    if (!isNaN(aNum) && !isNaN(bNum)) return sign * (aNum - bNum);
+    return sign * String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+  };
+}
+
 class ModernGrid {
   constructor(container, config = {}) {
     this.container = typeof container === 'string' ? document.querySelector(container) : container;
     this.config = this.mergeConfig(config);
     this.data = [...(config.data || [])];
     this.filteredData = [...this.data];
-    this.selectedRows = new Set();
+    this.selectedRows = new Set(); // row objects, so selections survive sorting, filtering and deletes
+    this.searchQuery = '';
     this.sortColumn = null;
     this.sortDirection = 'asc';
     this.currentPage = 1;
@@ -66,7 +94,7 @@ class ModernGrid {
       <div class="grid-toolbar">
         <div class="toolbar-left">
           ${this.config.search ? `
-            <input type="text" class="input" id="search-input" placeholder="Search..." style="width: 300px; height: 36px;">
+            <input type="text" class="input" id="search-input" placeholder="Search..." aria-label="Search rows" value="${escapeHtml(this.searchQuery)}" style="width: 300px; height: 36px;">
           ` : ''}
           ${this.config.pagination ? `
             <select class="select" id="page-size">
@@ -149,13 +177,12 @@ class ModernGrid {
     const pageData = this.filteredData.slice(startIndex, endIndex);
 
     return pageData.map((row, index) => {
-      const actualIndex = this.data.findIndex(dataRow => 
-        this.config.columns.every(col => dataRow[col.field] === row[col.field])
-      );
+      const actualIndex = this.data.indexOf(row);
+      const isSelected = this.selectedRows.has(row);
       return `
-        <tr data-index="${actualIndex}" class="${this.selectedRows.has(actualIndex) ? 'selected' : ''}">
+        <tr data-index="${actualIndex}" class="${isSelected ? 'selected' : ''}">
           ${this.config.selectable ? `
-            <td><input type="checkbox" class="checkbox row-select" ${this.selectedRows.has(actualIndex) ? 'checked' : ''}></td>
+            <td><input type="checkbox" class="checkbox row-select" aria-label="Select row" ${isSelected ? 'checked' : ''}></td>
           ` : ''}
           ${this.config.columns.map(col => `
             <td data-field="${col.field}" ${this.config.editable && col.editable !== false ? 'class="editable-cell" tabindex="0"' : ''}>
@@ -355,19 +382,18 @@ class ModernGrid {
 
   // Data manipulation methods
   handleSearch(query) {
-    if (!query.trim()) {
-      this.filteredData = [...this.data];
-    } else {
-      this.filteredData = this.data.filter(row => 
-        this.config.columns.some(col => 
-          String(row[col.field] || '').toLowerCase().includes(query.toLowerCase())
-        )
-      );
-    }
+    this.searchQuery = query;
     this.currentPage = 1;
     this.selectedRows.clear();
-    this.render();
-    this.attachEventListeners();
+    this.applyView();
+    this.rerender();
+
+    // Re-rendering replaces the input, so put the cursor back where the user was typing
+    const input = this.container.querySelector('#search-input');
+    if (input) {
+      input.focus();
+      input.setSelectionRange(query.length, query.length);
+    }
   }
 
   handleSort(field) {
@@ -377,25 +403,27 @@ class ModernGrid {
       this.sortColumn = field;
       this.sortDirection = 'asc';
     }
+    this.applyView();
+    this.rerender();
+  }
 
-    this.filteredData.sort((a, b) => {
-      const aVal = a[field] || '';
-      const bVal = b[field] || '';
-      
-      // Handle numeric values
-      const aNum = parseFloat(aVal.toString().replace(/[^0-9.-]/g, ''));
-      const bNum = parseFloat(bVal.toString().replace(/[^0-9.-]/g, ''));
-      
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return this.sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      
-      // Handle string values
-      if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+  /** Recompute the visible rows from data + current search + current sort. */
+  applyView() {
+    const query = this.searchQuery.trim().toLowerCase();
+    this.filteredData = query
+      ? this.data.filter(row => this.config.columns.some(col =>
+          String(row[col.field] ?? '').toLowerCase().includes(query)))
+      : [...this.data];
 
+    if (this.sortColumn) {
+      this.filteredData.sort(compareValues(this.sortColumn, this.sortDirection));
+    }
+
+    const totalPages = Math.max(1, Math.ceil(this.filteredData.length / this.config.pageSize));
+    if (this.currentPage > totalPages) this.currentPage = totalPages;
+  }
+
+  rerender() {
     this.render();
     this.attachEventListeners();
   }
@@ -414,10 +442,11 @@ class ModernGrid {
     });
     
     this.data.unshift(newRow);
-    this.filteredData = [...this.data];
+    this.searchQuery = '';  // make sure the new row is visible
+    this.sortColumn = null; // and stays at the top while it's edited
     this.currentPage = 1;
-    this.render();
-    this.attachEventListeners();
+    this.applyView();
+    this.rerender();
     
     // Auto-edit the first editable cell
     setTimeout(() => {
@@ -435,21 +464,9 @@ class ModernGrid {
     
     if (confirm(`Delete ${rowName}?`)) {
       this.data.splice(index, 1);
-      this.filteredData = this.data.filter(dataRow => 
-        this.filteredData.some(filteredRow => 
-          this.config.columns.every(col => dataRow[col.field] === filteredRow[col.field])
-        )
-      );
-      this.selectedRows.delete(index);
-      
-      // Adjust current page if necessary
-      const totalPages = Math.ceil(this.filteredData.length / this.config.pageSize);
-      if (this.currentPage > totalPages && totalPages > 0) {
-        this.currentPage = totalPages;
-      }
-      
-      this.render();
-      this.attachEventListeners();
+      this.selectedRows.delete(rowData);
+      this.applyView();
+      this.rerender();
     }
   }
 
@@ -460,18 +477,10 @@ class ModernGrid {
     }
     
     if (confirm(`Delete ${this.selectedRows.size} selected row(s)?`)) {
-      const indices = Array.from(this.selectedRows).sort((a, b) => b - a);
-      indices.forEach(index => {
-        if (index >= 0 && index < this.data.length) {
-          this.data.splice(index, 1);
-        }
-      });
-      
-      this.filteredData = [...this.data];
+      this.data = this.data.filter(row => !this.selectedRows.has(row));
       this.selectedRows.clear();
-      this.currentPage = 1;
-      this.render();
-      this.attachEventListeners();
+      this.applyView();
+      this.rerender();
     }
   }
 
@@ -557,15 +566,8 @@ class ModernGrid {
     }
     
     if (rowIndex >= 0 && rowIndex < this.data.length) {
+      // filteredData holds the same row objects as data, so this updates both
       this.data[rowIndex][field] = newValue;
-      
-      // Update filtered data
-      const filteredIndex = this.filteredData.findIndex(row => 
-        this.config.columns.every(col => row[col.field] === this.data[rowIndex][col.field])
-      );
-      if (filteredIndex >= 0) {
-        this.filteredData[filteredIndex][field] = newValue;
-      }
     }
     
     cell.contentEditable = false;
@@ -578,7 +580,8 @@ class ModernGrid {
   selectAll(checked) {
     this.selectedRows.clear();
     if (checked) {
-      this.data.forEach((_, index) => this.selectedRows.add(index));
+      // Only rows the user can see: never select rows hidden by the search
+      this.filteredData.forEach(row => this.selectedRows.add(row));
     }
     this.updateToolbar();
     this.render();
@@ -586,11 +589,12 @@ class ModernGrid {
   }
 
   selectRow(index, checked) {
-    const idx = parseInt(index);
+    const row = this.data[parseInt(index, 10)];
+    if (!row) return;
     if (checked) {
-      this.selectedRows.add(idx);
+      this.selectedRows.add(row);
     } else {
-      this.selectedRows.delete(idx);
+      this.selectedRows.delete(row);
     }
   }
 
@@ -610,7 +614,7 @@ class ModernGrid {
     if (column.formatter) {
       return column.formatter(value);
     }
-    return value || '';
+    return escapeHtml(value ?? '');
   }
 
   getColumnCount() {
@@ -639,7 +643,7 @@ class ModernGrid {
 
   exportData(format) {
     const selectedData = this.selectedRows.size > 0 
-      ? this.data.filter((_, index) => this.selectedRows.has(index))
+      ? this.filteredData.filter(row => this.selectedRows.has(row))
       : this.filteredData;
 
     if (format === 'csv') {
@@ -734,21 +738,19 @@ class ModernGrid {
 
   setData(data) {
     this.data = [...data];
-    this.filteredData = [...this.data];
     this.currentPage = 1;
     this.selectedRows.clear();
-    this.render();
-    this.attachEventListeners();
+    this.applyView();
+    this.rerender();
   }
 
   getSelectedRows() {
-    return Array.from(this.selectedRows).map(index => this.data[index]).filter(Boolean);
+    return this.data.filter(row => this.selectedRows.has(row));
   }
 
   refresh() {
-    this.filteredData = [...this.data];
-    this.render();
-    this.attachEventListeners();
+    this.applyView();
+    this.rerender();
   }
 
   destroy() {

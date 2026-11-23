@@ -1,5 +1,7 @@
 # Vanilla Data Grid
 
+[![CI](https://github.com/itsjxi/vanilla-data-grid/actions/workflows/ci.yml/badge.svg)](https://github.com/itsjxi/vanilla-data-grid/actions/workflows/ci.yml)
+
 A dependency-free data grid component in plain JavaScript. It supports sorting, search, pagination, inline add and delete, CSV/JSON export, and light/dark themes.
 
 **Live demo:** https://gridtable2023.netlify.app
@@ -31,6 +33,21 @@ new ModernGrid('#grid-container', {
   pageSize: 10,
 });
 ```
+
+## How it works
+
+- **One view pipeline.** Every change (search, sort, add, delete, edit) goes through `applyView()`, which recomputes the visible rows as data, then search, then sort. A filter or sort is never silently lost.
+- **Selection by row identity.** Selected rows are tracked as objects, not array indexes. Selections survive sorting, filtering and deletes; identical rows stay distinct; and *select all* only selects rows the user can see.
+- **Safe rendering.** Cell values are HTML-escaped before they reach `innerHTML`.
+- **Smart sorting.** `compareValues()` sorts currency and numeric strings numerically (`$90 < $1,200`) and text with locale-aware natural ordering (`Item 2 < item 10`).
+
+## Testing
+
+```bash
+npm test   # Vitest + jsdom
+```
+
+The 13 tests drive the real DOM. They cover typing into search, sort being kept while filtering, select-all and delete with an active search, selections after deletes, duplicate rows, pagination, HTML escaping and CSV export. CI runs them and a build on every push.
 
 ## Architecture
 

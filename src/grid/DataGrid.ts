@@ -110,6 +110,7 @@ export class DataGrid<T extends Row> {
   private loadVersion = 0;
   private resizeObserver: ResizeObserver | null = null;
   private destroyed = false;
+  private warnedHeight = false;
   private resolveReady!: () => void;
 
   private readonly scroller: HTMLElement;
@@ -123,7 +124,7 @@ export class DataGrid<T extends Row> {
   private readonly progress: HTMLElement;
 
   constructor(container: HTMLElement, options: DataGridOptions<T>) {
-    this.options = { rowHeight: 36, overscan: 6, selectable: false, emptyMessage: 'No rows match your search.', ...options };
+    this.options = { rowHeight: 44, overscan: 6, selectable: false, emptyMessage: 'No rows match your search.', ...options };
     this.columns = options.columns;
     this.rows = options.rows;
     this.client = new QueryClient({ mode: options.worker, workerThreshold: options.workerThreshold, createWorker: options.createWorker });
@@ -132,10 +133,10 @@ export class DataGrid<T extends Row> {
 
     const { rowHeight, selectable } = this.options;
     const template = [
-      ...(selectable ? ['44px'] : []),
-      ...this.columns.map((c) => (c.width ? `${c.width}px` : 'minmax(120px, 1fr)')),
+      ...(selectable ? ['56px'] : []),
+      ...this.columns.map((c) => (c.width ? `minmax(${c.width}px, ${c.width}fr)` : 'minmax(120px, 120fr)')),
     ];
-    const minWidth = (selectable ? 44 : 0) + this.columns.reduce((sum, c) => sum + (c.width ?? 120), 0);
+    const minWidth = (selectable ? 56 : 0) + this.columns.reduce((sum, c) => sum + (c.width ?? 120), 0);
 
     this.root = el('div', 'vdg');
     this.root.style.setProperty('--vdg-row-height', `${rowHeight}px`);
@@ -336,8 +337,22 @@ export class DataGrid<T extends Row> {
 
   /* ---------------- rendering ---------------- */
 
+  /**
+   * If the container has no fixed height, the scroller grows to fit every row and
+   * "visible rows" becomes all of them. Cap it at two screens so a layout mistake costs
+   * a warning, not a frozen tab.
+   */
   private viewportHeight(): number {
-    return Math.max(0, this.scroller.clientHeight - this.options.rowHeight);
+    const height = Math.max(0, this.scroller.clientHeight - this.options.rowHeight);
+    const cap = (globalThis.innerHeight || 1000) * 2;
+    if (height > cap) {
+      if (!this.warnedHeight) {
+        this.warnedHeight = true;
+        console.warn('vanilla-data-grid: the grid container needs a fixed height (for example height: 600px). Rendering is capped at two screens of rows.');
+      }
+      return cap;
+    }
+    return height;
   }
 
   private windowInput() {

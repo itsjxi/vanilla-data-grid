@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { createDataGrid, type DataGrid } from '../src';
 import type { Column } from '../src/core/types';
 import type { WorkerLike } from '../src/core/queryClient';
@@ -37,7 +37,7 @@ const frame = () => new Promise((r) => setTimeout(r, 20));
 const header = (title: string) => $$('[role="columnheader"]').find((h) => h.textContent === title)!;
 
 async function mount(rows = makeRows(1000), extra = {}) {
-  grid = createDataGrid(host, { columns, rows, ariaLabel: 'People', selectable: true, rowLabel: (r) => r.name, ...extra });
+  grid = createDataGrid(host, { columns, rows, ariaLabel: 'People', selectable: true, rowHeight: ROW, rowLabel: (r) => r.name, ...extra });
   await grid.ready;
   return grid;
 }
@@ -223,9 +223,26 @@ describe('workers', () => {
   });
 });
 
+describe('layout safety', () => {
+  it('caps rendering and warns when the container has no fixed height', async () => {
+    const proto = HTMLElement.prototype;
+    const original = Object.getOwnPropertyDescriptor(proto, 'clientHeight')!;
+    Object.defineProperty(proto, 'clientHeight', { configurable: true, get() { return this.classList.contains('vdg-scroller') ? 10_000 * ROW : 0; } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await mount(makeRows(10_000));
+      expect(bodyRows().length).toBeLessThan(Math.ceil((innerHeight * 2) / ROW) + 20);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      Object.defineProperty(proto, 'clientHeight', original);
+      warn.mockRestore();
+    }
+  });
+});
+
 describe('loading big tables', () => {
   it('encodes large tables in slices and lets newer data cancel an older load', async () => {
-    grid = createDataGrid(host, { columns, rows: makeRows(60_000), ariaLabel: 'People', worker: 'never' });
+    grid = createDataGrid(host, { columns, rows: makeRows(60_000), ariaLabel: 'People', worker: 'never', rowHeight: ROW });
     const latest = grid.setRows(makeRows(30)); // arrives while the first load is still encoding
     await latest;
     expect(grid.viewCount).toBe(30);

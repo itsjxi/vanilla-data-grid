@@ -1,15 +1,17 @@
 /* Vanilla Data Grid. Theme with the --vdg-* custom properties. */
 .vdg {
   --vdg-bg: #ffffff;
-  --vdg-header-bg: #f7f7f5;
-  --vdg-text: #18181b;
-  --vdg-muted: #71717a;
-  --vdg-border: #e7e7e4;
-  --vdg-row-hover: #f6f6f3;
-  --vdg-selected: #eef4ff;
-  --vdg-accent: #2563eb;
-  --vdg-focus: #2563eb;
-  --vdg-radius: 10px;
+  --vdg-header-bg: #ffffff;
+  --vdg-text: #1c1c21;
+  --vdg-muted: #66666f;
+  --vdg-border: #ededea;
+  --vdg-header-border: #e2e2de;
+  --vdg-row-hover: #f8f8f6;
+  --vdg-selected: #f1f5ff;
+  --vdg-accent: #2f5bea;
+  --vdg-focus: #2f5bea;
+  --vdg-radius: 16px;
+  --vdg-cell-padding: 20px;
   --vdg-font: inherit;
   position: relative;
   display: flex;
@@ -21,19 +23,22 @@
   background: var(--vdg-bg);
   border: 1px solid var(--vdg-border);
   border-radius: var(--vdg-radius);
+  box-shadow: 0 1px 2px rgb(16 16 20 / 0.04), 0 8px 24px -12px rgb(16 16 20 / 0.08);
   overflow: hidden;
   font-variant-numeric: tabular-nums;
 }
 .vdg[data-theme='dark'], [data-theme='dark'] .vdg {
-  --vdg-bg: #141416;
-  --vdg-header-bg: #1b1b1e;
-  --vdg-text: #ececee;
-  --vdg-muted: #9a9aa2;
-  --vdg-border: #2a2a2f;
-  --vdg-row-hover: #1d1d21;
-  --vdg-selected: #172340;
-  --vdg-accent: #7aa2ff;
-  --vdg-focus: #7aa2ff;
+  --vdg-bg: #151518;
+  --vdg-header-bg: #151518;
+  --vdg-text: #ececef;
+  --vdg-muted: #8f8f99;
+  --vdg-border: #232328;
+  --vdg-header-border: #2d2d33;
+  --vdg-row-hover: #1b1b1f;
+  --vdg-selected: #18213a;
+  --vdg-accent: #7d9cff;
+  --vdg-focus: #7d9cff;
+  box-shadow: none;
 }
 
 .vdg-scroller {
@@ -43,8 +48,10 @@
   overflow: auto;
   overscroll-behavior: contain;
   outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vdg-header-border) transparent;
 }
-.vdg-header { position: sticky; top: 0; z-index: 2; min-width: var(--vdg-min-width); }
+.vdg-header { position: sticky; top: 0; z-index: 2; min-width: var(--vdg-min-width); background: var(--vdg-header-bg); }
 .vdg-row {
   display: grid;
   grid-template-columns: var(--vdg-columns);
@@ -52,41 +59,54 @@
   min-width: var(--vdg-min-width);
   border-bottom: 1px solid var(--vdg-border);
   box-sizing: border-box;
+  transition: background-color .12s;
 }
-.vdg-header-row { background: var(--vdg-header-bg); }
+.vdg-header-row { border-bottom-color: var(--vdg-header-border); }
 .vdg-body { position: relative; min-width: var(--vdg-min-width); contain: strict; }
 .vdg-layer { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
 .vdg-layer .vdg-row:hover { background: var(--vdg-row-hover); }
-.vdg-row.is-selected { background: var(--vdg-selected); }
+.vdg-row.is-selected, .vdg-layer .vdg-row.is-selected:hover { background: var(--vdg-selected); }
 
 .vdg-cell {
   display: flex;
   align-items: center;
   min-width: 0;
-  padding: 0 12px;
+  padding: 0 var(--vdg-cell-padding);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   box-sizing: border-box;
 }
+.vdg-cell > :not(input) { overflow: hidden; text-overflow: ellipsis; }
 .vdg-cell.is-numeric { justify-content: flex-end; }
-.vdg-th { gap: 6px; font-weight: 600; font-size: 12.5px; color: var(--vdg-muted); user-select: none; }
+.vdg-th {
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--vdg-muted);
+  user-select: none;
+}
 .vdg-th.is-sortable { cursor: pointer; }
-.vdg-th.is-sortable:hover { color: var(--vdg-text); }
-.vdg-th[data-sort='asc'], .vdg-th[data-sort='desc'] { color: var(--vdg-text); }
+.vdg-th.is-sortable:hover, .vdg-th[data-sort='asc'], .vdg-th[data-sort='desc'] { color: var(--vdg-text); }
 .vdg-th-label { overflow: hidden; text-overflow: ellipsis; }
+/* Numeric headers put the sort arrow first so the label lines up with the numbers below. */
+.vdg-th.is-numeric { flex-direction: row-reverse; justify-content: flex-start; }
 .vdg-sort-icon { flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0; transition: opacity .15s; }
 .vdg-th.is-sortable:hover .vdg-sort-icon { opacity: .35; border-bottom: 5px solid currentColor; }
-.vdg-th[data-sort='asc'] .vdg-sort-icon { opacity: 1; border-bottom: 5px solid currentColor; }
-.vdg-th[data-sort='desc'] .vdg-sort-icon { opacity: 1; border-top: 5px solid currentColor; border-bottom: 0; }
+.vdg-th[data-sort='asc'] .vdg-sort-icon { opacity: 1; border-bottom: 5px solid var(--vdg-accent); }
+.vdg-th[data-sort='desc'] .vdg-sort-icon { opacity: 1; border-top: 5px solid var(--vdg-accent); border-bottom: 0; }
 .vdg-check { justify-content: center; padding: 0; }
 .vdg-checkbox { width: 16px; height: 16px; margin: 0; accent-color: var(--vdg-accent); cursor: pointer; }
 
 /* The active cell is only outlined while the grid has keyboard focus. */
-.vdg-scroller:focus-visible .vdg-cell.is-active { box-shadow: inset 0 0 0 2px var(--vdg-focus); border-radius: 4px; }
+.vdg-scroller:focus-visible .vdg-cell.is-active { box-shadow: inset 0 0 0 2px var(--vdg-focus); border-radius: 6px; }
 .vdg-scroller:focus-visible .vdg-row.is-active-row { background: var(--vdg-row-hover); }
 .vdg-scroller:focus-visible .vdg-row.is-active-row.is-selected { background: var(--vdg-selected); }
 
+/* Components below set display; make the hidden attribute win. */
+.vdg [hidden] { display: none !important; }
 .vdg-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--vdg-muted); }
 .vdg-progress {
   position: absolute; left: 0; right: 0; top: var(--vdg-row-height); z-index: 3; height: 2px; overflow: hidden;
@@ -95,4 +115,4 @@
 }
 @keyframes vdg-progress { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 .vdg-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-@media (prefers-reduced-motion: reduce) { .vdg-progress { animation-duration: 3s; } }
+@media (prefers-reduced-motion: reduce) { .vdg-progress { animation-duration: 3s; } .vdg-row { transition: none; } }

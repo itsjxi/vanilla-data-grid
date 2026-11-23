@@ -4,15 +4,16 @@ import { createDataGrid, type Column, type DataGrid, type GridStats } from '../s
 import { makeEmployeesAsync, type Employee } from './data';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const columns: Column<Employee>[] = [
-  { field: 'id', title: 'ID', type: 'number', width: 96, format: (v) => String(v) },
-  { field: 'name', title: 'Name', width: 200 },
-  { field: 'role', title: 'Role', width: 220 },
-  { field: 'team', title: 'Team', width: 130 },
-  { field: 'office', title: 'Office', width: 140 },
-  { field: 'started', title: 'Started', type: 'date', width: 120 },
-  { field: 'salary', title: 'Salary', type: 'number', width: 120, format: (v) => money.format(v as number) },
-  { field: 'rating', title: 'Rating', type: 'number', width: 96, format: (v) => (v as number).toFixed(1) },
+  { field: 'id', title: 'ID', type: 'number', width: 88, format: (v) => String(v) },
+  { field: 'name', title: 'Name', width: 180 },
+  { field: 'role', title: 'Role', width: 200 },
+  { field: 'team', title: 'Team', width: 120 },
+  { field: 'office', title: 'Office', width: 130 },
+  { field: 'started', title: 'Started', type: 'date', width: 128, format: (v) => day.format(new Date(v as string)) },
+  { field: 'salary', title: 'Salary', type: 'number', width: 112, format: (v) => money.format(v as number) },
+  { field: 'rating', title: 'Rating', type: 'number', width: 100, format: (v) => (v as number).toFixed(1) },
 ];
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -26,22 +27,25 @@ let selectedCount = 0;
 const fmt = (n: number) => n.toLocaleString('en-US');
 const ms = (n: number) => (n < 10 ? n.toFixed(1) : Math.round(n).toString());
 
+const metric = (name: string) => statsEl.querySelector<HTMLElement>(`[data-metric="${name}"]`)!;
+const selectedMetric = statsEl.querySelector<HTMLElement>('.metric-selected')!;
+
 function showStats(s: GridStats) {
-  const parts = [
-    `${fmt(s.matching)} of ${fmt(s.total)} rows`,
-    `query ${ms(s.queryMs)} ms on the ${s.where === 'worker' ? 'worker' : 'main thread'}`,
-    `${s.domRows} rows in the DOM`,
-    `frame ${ms(s.renderMs)} ms`,
-  ];
-  if (generatedMs) parts.push(`indexed in ${ms(s.encodeMs)} ms`);
-  if (selectedCount) parts.push(`${fmt(selectedCount)} selected`);
-  statsEl.textContent = parts.join(' · ');
+  metric('rows').innerHTML = s.matching === s.total
+    ? fmt(s.total)
+    : `${fmt(s.matching)}<small>of ${fmt(s.total)}</small>`;
+  metric('query').innerHTML = `${ms(s.queryMs)} ms<small>${s.where === 'worker' ? 'worker' : 'main thread'}</small>`;
+  metric('dom').textContent = String(s.domRows);
+  metric('frame').textContent = `${ms(s.renderMs)} ms`;
+  metric('indexed').textContent = generatedMs ? `${ms(s.encodeMs)} ms` : '–';
+  selectedMetric.hidden = selectedCount === 0;
+  metric('selected').textContent = fmt(selectedCount);
 }
 
 let loading = 0;
 async function load(size: number) {
   const ticket = ++loading;
-  statsEl.textContent = `Generating ${fmt(size)} rows…`;
+  metric('rows').innerHTML = `${fmt(size)}<small>generating…</small>`;
   {
     const started = performance.now();
     const rows = await makeEmployeesAsync(size);
@@ -53,6 +57,7 @@ async function load(size: number) {
         columns,
         rows,
         ariaLabel: 'Employees',
+        rowHeight: 48,
         selectable: true,
         rowLabel: (r) => r.name,
         onStats: showStats,

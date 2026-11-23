@@ -6,7 +6,7 @@ A dependency-free data grid in TypeScript that sorts and searches **a million ro
 
 **Live demo:** https://gridtable2023.netlify.app — switch between 1K, 100K and 1M rows and watch the live timings.
 
-![1M rows, sorted by name, three rows selected](docs/screenshot.png)
+![The demo: 100K rows sorted by salary, two rows selected](docs/screenshot.png)
 
 ## What it does
 
@@ -75,13 +75,13 @@ grid.exportCsv({ selectedOnly: true });
 
 | Option | Default | |
 | --- | --- | --- |
-| `rowHeight` | `36` | Fixed row height in px |
+| `rowHeight` | `44` | Fixed row height in px |
 | `selectable` | `false` | Checkbox column and keyboard selection |
 | `worker` | `'auto'` | `'auto'` uses a worker from `workerThreshold` rows (20,000); `'always'` / `'never'` |
 | `rowLabel` | first column | Words used for a row in announcements and checkbox labels |
 | `onStats`, `onSelectionChange` | | Callbacks |
 
-Column `type` is `'text'` (default), `'number'` (also parses `"$1,200"`) or `'date'`. Text columns are searchable by default; set `searchable: true` to search a number or date column too. Theme it with the `--vdg-*` CSS custom properties, or set `data-theme="dark"` on any ancestor.
+Give the container a fixed height (for example `height: 600px`); the grid fills it and scrolls inside. Column `type` is `'text'` (default), `'number'` (also parses `"$1,200"`) or `'date'`. Text columns are searchable by default; set `searchable: true` to search a number or date column too. Theme it with the `--vdg-*` CSS custom properties, or set `data-theme="dark"` on any ancestor.
 
 ## How it's built
 
@@ -103,7 +103,7 @@ The engine and virtualizer are pure functions with no DOM, so they're unit-teste
 ## Testing
 
 ```bash
-npm test          # Vitest + jsdom: 33 tests
+npm test          # Vitest + jsdom: 34 tests
 npm run lint      # ESLint + typescript-eslint, zero warnings
 npm run typecheck # strict TypeScript
 npm run bench     # engine benchmark
@@ -114,7 +114,7 @@ The tests cover:
 - accent-insensitive AND search that never matches across cells
 - latest-wins worker messaging, including stale answers, a replaced table and a crashed worker
 - virtual window maths, including compressed scrolling
-- the grid itself: row recycling, every keyboard command, selection with search and sort, CSV formula guards, HTML injection, and cancelling a load that's still running
+- the grid itself: row recycling, every keyboard command, selection with search and sort, CSV formula guards, HTML injection, cancelling a load that's still running, and a safety cap when the container has no height
 
 CI runs lint, type-check, tests and both builds on every push.
 

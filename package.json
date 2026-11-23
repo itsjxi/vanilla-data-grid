@@ -1,20 +1,53 @@
 {
-  "name": "zepto-2",
-  "private": true,
-  "version": "0.0.0",
+  "name": "vanilla-data-grid",
+  "version": "2.0.0",
+  "description": "A dependency-free, virtualized, accessible data grid in TypeScript. Sorts and filters a million rows off the main thread.",
   "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/vanilla-data-grid.js",
+  "module": "./dist/vanilla-data-grid.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/vanilla-data-grid.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run typecheck && vite build",
+    "build:lib": "vite build --mode lib && tsc -p tsconfig.lib.json",
     "preview": "vite preview",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "bench": "tsx scripts/bench.ts"
   },
+  "keywords": [
+    "data-grid",
+    "virtual-scroll",
+    "web-worker",
+    "accessibility",
+    "typescript",
+    "table"
+  ],
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0",
     "jsdom": "^25.0.1",
-    "vite": "^4.4.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.74.0",
+    "vite": "^5.4.21",
     "vitest": "^2.1.9"
-  },
-  "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.4.2"
   }
 }

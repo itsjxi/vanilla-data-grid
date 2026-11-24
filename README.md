@@ -4,7 +4,7 @@
 
 A dependency-free data grid in TypeScript that sorts and searches **a million rows without freezing the page**. Only the rows on screen are in the DOM, sorting and search run in a Web Worker, and the grid follows the WAI-ARIA grid pattern for keyboard and screen-reader users.
 
-**Live demo:** https://gridtable2023.netlify.app — switch between 1K, 100K and 1M rows and watch the live timings.
+**Live demo:** https://vanilla-data-grid.netlify.app — switch between 1K, 100K and 1M rows and watch the live timings.
 
 ![The demo: 100K rows sorted by salary, two rows selected](docs/screenshot.png)
 
